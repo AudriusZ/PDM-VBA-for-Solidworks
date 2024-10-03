@@ -15,9 +15,19 @@ Sub UpdateSolidWorksProperties()
     Dim Warnings As Long
     Dim saveStatus As Long
     Dim logMissingFiles As String
+    Dim startPartNo As String
+    Dim endPartNo As String
+    Dim foundStart As Boolean
 
     ' Set the folder path where SolidWorks files are stored
     folderPath = "C:\Data\Upwork-PPH Large Files\20231110 Jeevan Technology\Solidworks CAD Library\"
+
+    ' Set the start and end part numbers for the subset
+    startPartNo = "JCS00001" ' Replace with your start part number
+    endPartNo = "JCS00250" ' Replace with your end part number
+
+    ' Initialize variables
+    foundStart = False
 
     ' Connect to SolidWorks
     On Error Resume Next
@@ -36,22 +46,31 @@ Sub UpdateSolidWorksProperties()
 
     ' Loop through each row in Excel
     For i = 3 To ThisWorkbook.Sheets("JCS Database").Cells(Rows.Count, 1).End(xlUp).Row
-        FileName = Dir(folderPath & ThisWorkbook.Sheets("JCS Database").Cells(i, 1).Value & "*.SLDPRT")
+        PartNo = ThisWorkbook.Sheets("JCS Database").Cells(i, 1).Value
+
+        ' Check if the current part is within the subset range
+        If PartNo = startPartNo Then
+            foundStart = True
+        End If
+        If Not foundStart Then GoTo SkipIteration
+        If PartNo = endPartNo Then foundStart = False
+
+        ' Get the file name for the part or assembly
+        FileName = Dir(folderPath & PartNo & "*.SLDPRT")
         If FileName = "" Then
-            FileName = Dir(folderPath & ThisWorkbook.Sheets("JCS Database").Cells(i, 1).Value & "*.SLDASM")
+            FileName = Dir(folderPath & PartNo & "*.SLDASM")
             fileType = 2 ' Assembly files
         Else
             fileType = 1 ' Part files
         End If
 
         If FileName = "" Then
-            logMissingFiles = logMissingFiles & ThisWorkbook.Sheets("JCS Database").Cells(i, 1).Value & vbCrLf
+            logMissingFiles = logMissingFiles & PartNo & vbCrLf
             GoTo SkipIteration
         End If
 
         FilePath = folderPath & FileName
 
-        PartNo = ThisWorkbook.Sheets("JCS Database").Cells(i, 1).Value
         Revision = ThisWorkbook.Sheets("JCS Database").Cells(i, 2).Value
         Description = ThisWorkbook.Sheets("JCS Database").Cells(i, 3).Value
         Material = ThisWorkbook.Sheets("JCS Database").Cells(i, 4).Value
@@ -67,19 +86,18 @@ Sub UpdateSolidWorksProperties()
         End If
         On Error GoTo 0
 
-        ' Add custom properties if non existing
+        ' Add custom properties if non-existing
         Call swModel.AddCustomInfo3("", "PartNo", 30, PartNo)
         Call swModel.AddCustomInfo3("", "Revision", 30, Revision)
         Call swModel.AddCustomInfo3("", "Description", 30, Description)
         Call swModel.AddCustomInfo3("", "Material", 30, Material)
-        
-        ' Setting new custom properties if already existing
+
+        ' Set new custom properties if already existing
         Call swModel.CustomInfo2("", "PartNo", PartNo)
         Call swModel.CustomInfo2("", "Revision", Revision)
         Call swModel.CustomInfo2("", "Description", Description)
         Call swModel.CustomInfo2("", "Material", Material)
 
-        
         ' Save and close the document with full path
         saveStatus = swModel.SaveAs(FilePath)
         If Not saveStatus Then
@@ -108,5 +126,3 @@ SkipIteration:
     Set swModel = Nothing
     Set swApp = Nothing
 End Sub
-
-
